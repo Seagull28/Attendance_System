@@ -1,0 +1,51 @@
+{% extends 'auth_base.html' %}
+
+{% block extra_css %}
+<style>
+    .login-container {
+        min-height: 85vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .login-card {
+        background-color: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-bg"></div>
+<div class="container login-container">
+    <div class="row justify-content-center w-100">
+        <div class="col-xl-6 col-lg-8 col-md-9">
+            <div class="card o-hidden border-0 shadow-lg my-5 login-card">
+                <div class="card-body p-0">
+                    <div class="p-5">
+                        <div class="text-center">
+                            <h1 class="h4 text-gray-900 mb-4">Welcome Back!</h1>
+                        </div>
+                        <form class="user" method="post">
+                            {% csrf_token %}
+                            <div class="form-group mb-3">
+                                <input type="text" class="form-control form-control-user" name="username" 
+                                    placeholder="Enter Roll Number...">
+                            </div>
+                            <div class="form-group mb-3">
+                                <input type="password" class="form-control form-control-user" name="password"
+                                    placeholder="Password">
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-user btn-block w-100">
+                                Login
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
