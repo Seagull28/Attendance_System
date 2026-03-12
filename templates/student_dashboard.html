@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {% extends 'base.html' %}
 {% load custom_filters %}
 
@@ -134,4 +135,142 @@
         }
     });
 </script>
+=======
+{% extends 'base.html' %}
+{% load custom_filters %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Heading -->
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Dashboard</h1>
+        <a href="#" class="btn btn-success no-print" onclick="window.print(); return false;">
+            <i class="fas fa-download"></i> Generate Report
+        </a>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card stats-card h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Overall Attendance</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ overall_percentage }}%</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendance Table -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Attendance Details</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Subject</th>
+                            <th>Classes Held</th>
+                            <th>Classes Attended</th>
+                            <th>Classes Absent</th>
+                            <th>Absent Dates</th>
+                            <th>Attendance %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for report in attendance_reports %}
+                        <tr>
+                            <td>{{ report.subject.name }}</td>
+                            <td>{{ report.total_classes }}</td>
+                            <td>{{ report.attended_classes }}</td>
+                            <td>{{ report.classes_absent }}</td>
+                            <td>{{ report.absent_dates|join:", " }}</td>
+                            <td>{{ report.attendance_percentage }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-primary text-white font-weight-bold">
+                    Monthly Attendance Overview
+                </div>
+                <div class="card-body d-flex justify-content-center align-items-center">
+                    <canvas id="monthlyChart" style="max-width: 300px; max-height: 300px;"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-primary text-white font-weight-bold">
+                    Weekly Statistics
+                </div>
+                <div class="card-body d-flex justify-content-center align-items-center">
+                    <canvas id="weeklyChart" style="max-width: 300px; max-height: 300px;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const monthlyData = {
+        labels: ['Present', 'Absent'],
+        datasets: [{
+            data: [{{ monthly_present }}, {{ monthly_absent }}],
+            backgroundColor: ['#28a745', '#dc3545']
+        }]
+    };
+
+    const weeklyData = {
+        labels: ['Present', 'Absent'],
+        datasets: [{
+            data: [{{ weekly_present }}, {{ weekly_absent }}],
+            backgroundColor: ['#007bff', '#ffc107']
+        }]
+    };
+
+    new Chart(document.getElementById('monthlyChart'), {
+        type: 'pie',
+        data: monthlyData,
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    new Chart(document.getElementById('weeklyChart'), {
+        type: 'pie',
+        data: weeklyData,
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+</script>
+>>>>>>> ab50e4e83a174392a05f5bd7dd8a71ce1960a3af
 {% endblock %}

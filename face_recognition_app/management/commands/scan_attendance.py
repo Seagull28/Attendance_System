@@ -63,16 +63,6 @@ class Command(BaseCommand):
             face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
 
             for face_encoding, face_location in zip(face_encodings, face_locations):
-                """matches = face_recognition.compare_faces(known_encodings, face_encoding, tolerance=0.5)
-                if True in matches:
-                    match_index = matches.index(True)
-                    student = known_students[match_index]
-                    if student not in marked_students:
-                        self.mark_attendance(student, subject)
-                        marked_students.add(student)
-                        top, right, bottom, left = face_location
-                        cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
-                        cv2.putText(frame, student.roll_number, (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)"""
                 face_distances = face_recognition.face_distance(known_encodings, face_encoding)
                 best_match_index = np.argmin(face_distances)
 
@@ -83,8 +73,7 @@ class Command(BaseCommand):
                         marked_students.add(student)
                         top, right, bottom, left = face_location
                         cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
-                        cv2.putText(frame, student.roll_number, (left, top - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                        cv2.putText(frame, student.roll_number, (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
                 else:
                      # Optional: draw box for unknown face
                     top, right, bottom, left = face_location
@@ -164,3 +153,4 @@ class Command(BaseCommand):
         report.save()
         
         self.stdout.write(f"📊 Updated report: {student.roll_number} | {subject.code} | {report.classes_attended}/{report.total_classes}")
+

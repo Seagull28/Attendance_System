@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {% extends 'base.html' %}
 
 {% block content %}
@@ -109,3 +110,116 @@
     });
 </script>
 {% endblock %}
+=======
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    {% csrf_token %}
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">Face Capture</h6>
+            <button class="btn btn-success" id="startCapture">
+                <i class="fas fa-camera me-2"></i> Start Capture
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="video-container">
+                        <video id="video" width="100%" autoplay playsinline></video>
+                        <canvas id="canvas" style="display: none;"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="form-group mb-3">
+                        <label>Roll Number</label>
+                        <input type="text" class="form-control" id="rollNumber">
+                    </div>
+                    <div class="captured-faces mt-3">
+                        <h6>Captured Faces: <span id="faceCount">0</span>/1</h6>
+                        <div id="capturedImages" class="d-flex flex-wrap gap-2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const startButton = document.getElementById('startCapture');
+        let faceCount = 0;
+
+        // Initialize camera
+        async function initializeCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+                video.play();
+            } catch (err) {
+                console.error("Camera access error:", err);
+                alert("Please allow camera access.");
+            }
+        }
+
+        initializeCamera();
+
+        startButton.addEventListener('click', async () => {
+            if (faceCount >= 1) {
+                alert("Only one capture allowed.");
+                return;
+            }
+
+            const rollNumber = document.getElementById('rollNumber').value;
+            if (!rollNumber) {
+                alert('Enter a roll number first');
+                return;
+            }
+
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const imageData = canvas.toDataURL('image/jpeg');
+
+            try {
+                const response = await fetch('/dashboard/face-capture/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: `image=${encodeURIComponent(imageData)}&roll_number=${rollNumber}`
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    faceCount++;
+                    document.getElementById('faceCount').textContent = faceCount;
+
+                    const img = document.createElement('img');
+                    img.src = imageData;
+                    img.style.width = '100px';
+                    img.style.height = '100px';
+                    document.getElementById('capturedImages').appendChild(img);
+
+                    startButton.disabled = true;
+                    startButton.textContent = "Capture Done";
+                } else {
+                    alert(data.error || 'Failed to capture');
+                }
+            } catch (error) {
+                console.error("Capture error:", error);
+                alert('An error occurred while sending the image.');
+            }
+        });
+    });
+</script>
+{% endblock %}
+>>>>>>> ab50e4e83a174392a05f5bd7dd8a71ce1960a3af

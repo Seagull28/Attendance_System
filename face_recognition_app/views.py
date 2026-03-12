@@ -1,13 +1,11 @@
 import json
+import json
 from django.shortcuts import render, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.views.generic import TemplateView, View
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
 from django.utils import timezone
 from .models import Student, Attendance, AttendanceReport, Subject, TimeTable
-import face_recognition
-import numpy as np
-import cv2
 import base64
 import io
 from django.contrib.admin.views.decorators import staff_member_required
@@ -18,7 +16,7 @@ from face_recognition_app.models import Student, Attendance, Subject, Attendance
 from collections import defaultdict
 import json
 from datetime import timedelta
-from reportlab.pdfgen import canvas
+ 
 from collections import OrderedDict,defaultdict
 from calendar import monthrange
 
@@ -61,6 +59,7 @@ class FaceCaptureView(UserPassesTestMixin, TemplateView):
         return self.request.user.is_staff
 
     def post(self, request):
+        import face_recognition
         image_data = request.POST.get('image')
         roll_number = request.POST.get('roll_number')
         
@@ -112,6 +111,9 @@ class FaceRecognitionView(View):
         return render(request, 'face_recognition.html')
 
     def post(self, request):
+        import cv2
+        import numpy as np
+        import face_recognition
         video_capture = cv2.VideoCapture(0)
         face_locations = []
         face_encodings = []
@@ -156,6 +158,295 @@ class FaceRecognitionView(View):
                 subject=current_subject,
                 present=True
             )
+
+class AttendanceReportView(LoginRequiredMixin, View):
+    def get(self, request):
+        student = Student.objects.get(user=request.user)
+        subjects = Subject.objects.filter(department=student.department, year=student.year, section=student.section)
+
+        attendance_summary = []
+        detailed_report = []
+
+        today = timezone.now().date()
+        trend_dates = []
+        trend_percentages = []
+
+        for subject in subjects:
+            total = Attendance.objects.filter(subject=subject).values('date').distinct().count()
+            attended = Attendance.objects.filter(subject=subject, student=student, present=True).count()
+            percentage = round((attended / total * 100), 1) if total > 0 else 0
+
+            attendance_summary.append({
+                'subject_name': subject.name,
+                'total_classes': total,
+                'attended_classes': attended,
+                'percentage': percentage
+            })
+
+            logs = Attendance.objects.filter(subject=subject, student=student).order_by('-date')
+            detailed_report.append({
+                'subject_name': subject.name,
+                'entries': [{
+                    'date': a.date.strftime("%B %d, %Y"),
+                    'status': "Present" if a.present else "Absent",
+                    'time': a.time.strftime("%I:%M %p") if a.time else "N/A"
+                } for a in logs]
+            })
+
+        for i in range(6, -1, -1):
+            date = today - timedelta(days=i)
+            total = Attendance.objects.filter(student=student, date=date).count()
+            present = Attendance.objects.filter(student=student, date=date, present=True).count()
+            percent = round((present / total) * 100, 1) if total else 0
+            trend_dates.append(date.strftime('%b %d'))
+            trend_percentages.append(percent)
+
+        context = {
+            'attendance_summary': attendance_summary,
+            'detailed_report': detailed_report,
+            'dates': json.dumps(trend_dates),
+            'percentages': json.dumps(trend_percentages),
+        }
+        return render(request, 'attendance_report.html', context)
+
+
+class StudentDashboardView(LoginRequiredMixin, View):
+    def get(self, request):
+        student = Student.objects.get(user=request.user)
+        subjects = Subject.objects.filter(department=student.department, year=student.year, section=student.section)
+
+        attendance_reports = []
+        total_attended = total_classes = 0
+        monthly_present = monthly_absent = 0
+        weekly_present = weekly_absent = 0
+
+        today = timezone.now().date()
+        week_ago = today - timedelta(days=7)
+        month_ago = today - timedelta(days=30)
+
+        monthly_labels = []
+        monthly_data = []
+
+        for subject in subjects:
+            subject_attendance = Attendance.objects.filter(subject=subject, student=student).order_by('date')
+
+            classes = Attendance.objects.filter(subject=subject).values('date').distinct().count()
+            attended = subject_attendance.filter(present=True).count()
+            percentage = round((attended / classes * 100), 1) if classes > 0 else 0
+            absent_dates = subject_attendance.filter(present=False).values_list('date', flat=True)
+
+            attendance_reports.append({
+                'subject': subject,
+                'total_classes': classes,
+                'attended_classes': attended,
+                'classes_absent': len(absent_dates),
+                'absent_dates': [d.strftime("%b %d") for d in absent_dates],
+                'attendance_percentage': percentage
+            })
+
+            total_classes += classes
+            total_attended += attended
+
+            monthly_present += subject_attendance.filter(date__gte=month_ago, present=True).count()
+            monthly_absent += subject_attendance.filter(date__gte=month_ago, present=False).count()
+
+            weekly_present += subject_attendance.filter(date__gte=week_ago, present=True).count()
+            weekly_absent += subject_attendance.filter(date__gte=week_ago, present=False).count()
+
+        for i in range(6, -1, -1):
+            date = today - timedelta(days=i)
+            daily_total = Attendance.objects.filter(student=student, date=date).count()
+            daily_present = Attendance.objects.filter(student=student, date=date, present=True).count()
+            percent = round((daily_present / daily_total * 100), 1) if daily_total else 0
+            monthly_labels.append(date.strftime("%b %d"))
+            monthly_data.append(percent)
+
+        overall = round((total_attended / total_classes * 100), 1) if total_classes > 0 else 0
+
+        context = {
+            'attendance_reports': attendance_reports,
+            'overall_percentage': overall,
+            'monthly_present': monthly_present,
+            'monthly_absent': monthly_absent,
+            'weekly_present': weekly_present,
+            'weekly_absent': weekly_absent,
+            'monthly_labels': json.dumps(monthly_labels),
+            'monthly_data': json.dumps(monthly_data),
+            'weekly_data': json.dumps([weekly_present, weekly_absent])
+        }
+        return render(request, 'student_dashboard.html', context)
+
+
+class ProfileView(LoginRequiredMixin, TemplateView):
+
+    template_name = 'profile.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        student = Student.objects.get(user=self.request.user)
+        context['student'] = student
+        return context
+
+class TimetableView(LoginRequiredMixin, TemplateView):
+    template_name = 'timetable.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        student = Student.objects.get(user=self.request.user)
+
+        # Define student_section before using it
+        student_section = student.section
+
+        # Get timetable entries for student's department, year and section
+        timetable_entries = TimeTable.objects.filter(
+            subject__department=student.department,
+            subject__year=student.year,
+            subject__section=student.section
+        ).select_related('subject')
+
+        # Define time slots
+        time_slots = [
+            {'start': '09:30', 'end': '10:30'},  # P1
+            {'start': '10:30', 'end': '11:30'},  # P2
+            {'start': '11:40', 'end': '12:40'},  # P3
+            {'start': '12:40', 'end': '13:40'},  # P4
+            {'start': '14:15', 'end': '15:15'},  # P5
+            {'start': '15:15', 'end': '16:15'},  # P6
+        ]
+
+        # Define days
+        days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
+
+        # Initialize timetable dictionary
+        timetable = {day: {} for day in days}
+
+        # Populate timetable
+        for entry in timetable_entries:
+            day = days[entry.day_of_week - 1]
+            entry_time = entry.start_time.strftime('%H:%M')
+            for i, slot in enumerate(time_slots):
+                if entry_time == slot['start']:
+                    timetable[day][i] = entry
+                    break
+
+        # Add all required context
+        context.update({
+            'time_slots': time_slots,
+            'days': days,
+            'timetable': timetable,
+            'student_section': student_section,
+            'student_roll': student.roll_number,
+            'department': student.department,
+            'year': student.year,
+            # 'subjects': subjects  # Uncomment if you have defined 'subjects' above
+        })
+
+        return context
+        roll_info = student.parse_roll_number()
+
+        # Get all sections for the student's department and year
+        sections = Student.objects.filter(
+            department=student.department,
+            year=student.year
+        ).values_list('section', flat=True).distinct()
+
+        # Get selected section (default to student's section)
+        selected_section = self.request.GET.get('section', student.section)
+
+        # Get timetable entries based on parsed roll number information
+        timetable_entries = TimeTable.objects.filter(
+            subject__department=student.department,
+            subject__year=student.year,
+            subject__section=selected_section
+        ).select_related('subject')
+
+        # Define time slots with 24-hour format
+        time_slots = [
+            {'start': '09:30', 'end': '10:30'},  # P1
+            {'start': '10:30', 'end': '11:30'},  # P2
+            {'start': '11:40', 'end': '12:40'},  # P3
+            {'start': '12:40', 'end': '13:40'},  # P4
+            {'start': '14:15', 'end': '15:15'},  # P5
+            {'start': '15:15', 'end': '16:15'},  # P6
+        ]
+
+        days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
+        timetable = {day: {} for day in days}
+
+        for entry in timetable_entries:
+            day = days[entry.day_of_week - 1]
+            entry_time = entry.start_time.strftime('%H:%M')
+            for i, slot in enumerate(time_slots):
+                if entry_time == slot['start']:
+                    timetable[day][i] = entry
+                    break
+
+        context.update({
+            'time_slots': time_slots,
+            'timetable': timetable,
+            'days': days,
+            'sections': sections,
+            'selected_section': selected_section,
+            'roll_info': roll_info  # Add roll number info to context
+        })
+        return context
+
+
+@staff_member_required
+def get_sections_by_department(request):
+    department_id = request.GET.get('department')
+    if department_id:
+        sections = Section.objects.filter(department_id=department_id)
+        data = [{'id': section.id, 'name': section.name} for section in sections]
+        return JsonResponse(data, safe=False)
+    return JsonResponse([], safe=False)
+
+@staff_member_required
+def get_subjects_by_department_section(request):
+    department_id = request.GET.get('department')
+    section_id = request.GET.get('section')
+    subjects = Subject.objects.filter(
+        department_id=department_id,
+        section_id=section_id
+    ).values('id', 'name')
+    return JsonResponse({'subjects': list(subjects)})
+
+@staff_member_required
+def get_subjects_for_timetable(request):
+    department = request.GET.get('department')
+    
+    if not department:
+        return JsonResponse({'error': 'Department is required'}, status=400)
+        
+    subjects = Subject.objects.filter(department=department)
+    subject_data = [{
+        'id': subject.id,
+        'name': f'{subject.code} - {subject.name}'
+    } for subject in subjects]
+    
+    return JsonResponse({'subjects': subject_data})
+
+def generate_report(request):
+    from reportlab.pdfgen import canvas
+    # Create the HttpResponse object with PDF headers.
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="attendance_report.pdf"'
+
+    # Create the PDF object, using the response as its "file."
+    p = canvas.Canvas(response)
+
+    # Draw things on the PDF. Here's a simple example:
+    p.setFont("Helvetica-Bold", 16)
+    p.drawString(100, 800, "Attendance Report")
+    p.setFont("Helvetica", 12)
+    p.drawString(100, 780, f"Student: {request.user.username}")
+
+    # Add more content as needed...
+    p.drawString(100, 760, "This is a sample PDF report.")
+
+    # Close the PDF object cleanly.
+    p.showPage()
+    p.save()
 
 class AttendanceReportView(LoginRequiredMixin, View):
     def get(self, request):

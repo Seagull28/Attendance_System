@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {% extends "admin/base.html" %}
 
 {% block title %}{{ title }} | Administration Site{% endblock %}
@@ -6,4 +7,14 @@
 <h1 id="site-name"><a href="{% url 'admin:index' %}">Administration Site</a></h1>
 {% endblock %}
 
+=======
+{% extends "admin/base.html" %}
+
+{% block title %}{{ title }} | Administration Site{% endblock %}
+
+{% block branding %}
+<h1 id="site-name"><a href="{% url 'admin:index' %}">Administration Site</a></h1>
+{% endblock %}
+
+>>>>>>> ab50e4e83a174392a05f5bd7dd8a71ce1960a3af
 {% block nav-global %}{% endblock %}
