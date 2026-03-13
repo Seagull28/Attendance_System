@@ -193,4 +193,4 @@ MIT License
 =======
 # Attendance_System
 Live face recognition based attendance system
->>>>>>> ab50e4e83a174392a05f5bd7dd8a71ce1960a3af
+
