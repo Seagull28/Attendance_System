@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # Face Recognition Attendance System
 
 An automated attendance management system that identifies students using
